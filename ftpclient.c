@@ -4,9 +4,23 @@
 
 #define PACKET_MAX_SIZE 512
 
-void getConn(SOCKET *s, char *ipAddr, int port) {
+void sendToSock(SOCKET s, char *msg){
+    if ((sizeof(msg) - 1) > PACKET_MAX_SIZE) {
+        printf("Exceeding the max message size...\n");
+        exit(0);
+    }
+    if (send(s, (char*)&msg, sizeof(msg) - 1, 0) == SOCKET_ERROR) {
+        printf("Sending error %d.\n", WSAGetLastError());
+        closesocket(s);
+        exit(0);
+    }
+    printf("Msg received.\n");
+}
+
+SOCKET getConn(char *ipAddr, int port) {
+    SOCKET s;
     // Создание сокета
-    if ((*s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+    if ((s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
         printf("Failed to create listening socket. Error %d\n", WSAGetLastError());
         exit(0);
     }
@@ -19,18 +33,18 @@ void getConn(SOCKET *s, char *ipAddr, int port) {
     serverAddress.sin_port = htons(port);
 
    // Выполняем соединение с сервером:
-    if (connect(*s, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
+    if (connect(s, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
         printf("Connection error %d.\n", WSAGetLastError());
-        closesocket(*s);
+        closesocket(s);
         exit(0);
     }
     printf("Connection successfully!\n");
+    return s;
 }
 
 int main() {
     WSADATA wsaData;
-    SOCKET serverSocket;
-
+    
     // Инициализация Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         printf("Error %d during initialization Winsock.\n", WSAGetLastError());
@@ -38,7 +52,7 @@ int main() {
     }
 
     // 
-    getConn(&serverSocket, "127.0.0.2", 8080);
+    SOCKET serverSocket = getConn("127.0.0.2", 8080);
 
     char resp[] = "s";
     char msgbuff[PACKET_MAX_SIZE];
@@ -59,12 +73,7 @@ int main() {
         } while (len != 1);
 
         // Отправка данных
-        if (send(serverSocket, (char*)&resp, sizeof(resp) - 1, 0) == SOCKET_ERROR) {
-            printf("Sending error %d.\n", WSAGetLastError());
-            closesocket(serverSocket);
-            return 1;
-        }
-        // send(serverSocket, "-1\n", 3, 0);
+        sendToServ(serverSocket, resp);
     }
 
     printf("Connection lost.\n");
