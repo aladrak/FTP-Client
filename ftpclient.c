@@ -4,6 +4,20 @@
 
 #define PACKET_MAX_SIZE 512
 
+// Ф-ия ввода команд
+void scanMsg(char *question, char *scanBuffer, int bufferLength) { 
+    printf("%s  (Max %d characters)\n", question, bufferLength - 1); 
+    fgets(scanBuffer, bufferLength, stdin); 
+    if (scanBuffer[strlen(scanBuffer) -1] != '\n'){ 
+        int dropped = 0; 
+        while (fgetc(stdin) != '\n') { dropped++; } 
+        if (dropped > 0) { 
+            printf("Woah there partner, your input was over the limit by %d characters, try again!\n", dropped ); 
+            scanMsg(question, scanBuffer, bufferLength); 
+        } 
+    } else { scanBuffer[strlen(scanBuffer) -1] = '\0'; } 
+} 
+
 void sendToSock(SOCKET s, char *msg){
     if ((sizeof(msg) - 1) > PACKET_MAX_SIZE) {
         printf("Exceeding the max message size...\n");
@@ -54,7 +68,7 @@ int main() {
     // 
     SOCKET serverSocket = getConn("127.0.0.2", 8080);
 
-    char resp[] = "s";
+    char *resp;
     char msgbuff[PACKET_MAX_SIZE];
 
     while (1) {
@@ -73,7 +87,10 @@ int main() {
         } while (len != 1);
 
         // Отправка данных
-        sendToServ(serverSocket, resp);
+        resp = (char*)malloc(31*sizeof(char));
+        scanMsg("Enter msg: ", resp, 31);
+        printf("%s\n", resp);
+        sendToSock(serverSocket, resp);
     }
 
     printf("Connection lost.\n");
