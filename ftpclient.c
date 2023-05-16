@@ -1,34 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <winsock2.h>
 
 #define PACKET_MAX_SIZE 512
 
 // Ф-ия ввода команд
-void scanMsg(char *question, char *scanBuffer, int bufferLength) { 
+int scanMsg(char *question, char *scanBuffer, int bufferLength) { 
     printf("%s  (Max %d characters)\n", question, bufferLength - 1); 
     fgets(scanBuffer, bufferLength, stdin); 
     if (scanBuffer[strlen(scanBuffer) -1] != '\n'){ 
         int dropped = 0; 
         while (fgetc(stdin) != '\n') { dropped++; } 
         if (dropped > 0) { 
-            printf("Woah there partner, your input was over the limit by %d characters, try again!\n", dropped ); 
-            scanMsg(question, scanBuffer, bufferLength); 
+            printf("Your input has exceeded the limit and the buffer has been extended by %d characters, try again!\n", dropped);
+            free(scanBuffer);
+            scanBuffer = (char*)malloc((bufferLength + dropped)*sizeof(char)); 
+            scanMsg(question, scanBuffer, bufferLength + dropped); 
         } 
-    } else { scanBuffer[strlen(scanBuffer) -1] = '\0'; } 
+    } else { scanBuffer[strlen(scanBuffer) -1] = '\0'; }
+    return bufferLength;
 } 
 
-void sendToSock(SOCKET s, char *msg){
-    if ((sizeof(msg) - 1) > PACKET_MAX_SIZE) {
-        printf("Exceeding the max message size...\n");
-        exit(0);
+void sendToSock(SOCKET s, char *msg, int len) {
+    if (len > PACKET_MAX_SIZE) {
+        printf("Message not sent! Exceeding the max message size...\n");
+        return;
     }
-    if (send(s, (char*)&msg, sizeof(msg) - 1, 0) == SOCKET_ERROR) {
+    if (send(s, msg, len, 0) == SOCKET_ERROR) {
         printf("Sending error %d.\n", WSAGetLastError());
         closesocket(s);
         exit(0);
     }
-    printf("Msg received.\n");
 }
 
 SOCKET getConn(char *ipAddr, int port) {
@@ -62,23 +65,22 @@ int main() {
     // Инициализация Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         printf("Error %d during initialization Winsock.\n", WSAGetLastError());
-        return 1;
+        exit(1);
     }
 
     // 
     SOCKET serverSocket = getConn("127.0.0.2", 8080);
 
-    char *resp;
     char msgbuff[PACKET_MAX_SIZE];
 
     while (1) {
-
         // Получение сообщения
         int len; 
         do {
             if ((len = recv(serverSocket, (char*)&msgbuff, PACKET_MAX_SIZE, 0)) == SOCKET_ERROR) {
                 return -1;
             }
+            printf("Server: ");
             for (int i = 0; i < len; i++) {
                 printf ("%c", msgbuff[i]);
             }
@@ -87,10 +89,17 @@ int main() {
         } while (len != 1);
 
         // Отправка данных
-        resp = (char*)malloc(31*sizeof(char));
-        scanMsg("Enter msg: ", resp, 31);
-        printf("%s\n", resp);
-        sendToSock(serverSocket, resp);
+        
+        char *resp;
+        resp = (char*)malloc(5*sizeof(char));
+        int msglen = scanMsg("Enter msg: ", resp, 5); // (char*)&
+        
+        // if (send(serverSocket, resp, sizeof(resp), 0) == SOCKET_ERROR) {
+        //     printf("Sending error %d.\n", WSAGetLastError());
+        //     closesocket(serverSocket);
+        //     exit(0);
+        // }
+        sendToSock(serverSocket, resp, msglen - 1);
     }
 
     printf("Connection lost.\n");
