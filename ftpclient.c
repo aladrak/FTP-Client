@@ -6,7 +6,7 @@
 #define PACKET_MAX_SIZE 512
 
 // Ф-ия ввода команд
-int scanMsg(char *question, char *scanBuffer, int bufferLength) { 
+void scanMsg(char *question, char *scanBuffer, int bufferLength) { 
     printf("%s  (Max %d characters)\n", question, bufferLength - 1); 
     fgets(scanBuffer, bufferLength, stdin); 
     if (scanBuffer[strlen(scanBuffer) -1] != '\n'){ 
@@ -19,7 +19,6 @@ int scanMsg(char *question, char *scanBuffer, int bufferLength) {
             scanMsg(question, scanBuffer, bufferLength + dropped); 
         } 
     } else { scanBuffer[strlen(scanBuffer) -1] = '\0'; }
-    return bufferLength;
 } 
 
 void sendToSock(SOCKET s, char *msg, int len) {
@@ -92,14 +91,14 @@ int main() {
         
         char *resp;
         resp = (char*)malloc(5*sizeof(char));
-        int msglen = scanMsg("Enter msg: ", resp, 5); // (char*)&
+        scanMsg("Enter msg: ", resp, 5); // (char*)&
         
         // if (send(serverSocket, resp, sizeof(resp), 0) == SOCKET_ERROR) {
         //     printf("Sending error %d.\n", WSAGetLastError());
         //     closesocket(serverSocket);
         //     exit(0);
         // }
-        sendToSock(serverSocket, resp, msglen - 1);
+        sendToSock(serverSocket, resp, strlen(resp));
     }
 
     printf("Connection lost.\n");
