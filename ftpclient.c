@@ -3,7 +3,7 @@
 #include <string.h>
 #include <winsock2.h>
 
-#define PACKET_MAX_SIZE 512
+#define SIZE_BUF 512
 
 // Ф-ия ввода команд
 void scanMsg(char *question, char *scanBuffer, int bufferLength) { 
@@ -22,7 +22,7 @@ void scanMsg(char *question, char *scanBuffer, int bufferLength) {
 } 
 
 void sendToSock(SOCKET s, char *msg, int len) {
-    if (len > PACKET_MAX_SIZE) {
+    if (len > SIZE_BUF) {
         printf("Message not sent! Exceeding the max message size...\n");
         return;
     }
@@ -70,13 +70,13 @@ int main() {
     // 
     SOCKET serverSocket = getConn("127.0.0.2", 8080);
 
-    char msgbuff[PACKET_MAX_SIZE];
+    char msgbuff[SIZE_BUF];
 
     while (1) {
         // Получение сообщения
         int len; 
         do {
-            if ((len = recv(serverSocket, (char*)&msgbuff, PACKET_MAX_SIZE, 0)) == SOCKET_ERROR) {
+            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
                 return -1;
             }
             printf("Server: ");
@@ -90,8 +90,8 @@ int main() {
         // Отправка данных
         
         char *resp;
-        resp = (char*)malloc(5*sizeof(char));
-        scanMsg("Enter msg: ", resp, 5); // (char*)&
+        resp = (char*)malloc(10*sizeof(char));
+        scanMsg("Enter msg: ", resp, 10); // (char*)&
         
         // if (send(serverSocket, resp, sizeof(resp), 0) == SOCKET_ERROR) {
         //     printf("Sending error %d.\n", WSAGetLastError());
@@ -99,6 +99,54 @@ int main() {
         //     exit(0);
         // }
         sendToSock(serverSocket, resp, strlen(resp));
+// Отправка файла от клиента
+        if (!strncmp(resp, "-sendfile", 9)) {
+            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+                return -1;
+            }
+            printf("Server: ");
+            for (int i = 0; i < len; i++) {
+                printf ("%c", msgbuff[i]);
+            }
+            char *filename;
+            filename = (char*)malloc(32*sizeof(char));
+            scanMsg("Enter filename: ", filename, 32);
+            filename[strcspn(filename, "\n")] = '\0';
+
+            sendToSock(serverSocket, filename, strlen(filename));
+            
+            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+                return -1;
+            }
+            printf("Server: ");
+            for (int i = 0; i < len; i++) {
+                printf ("%c", msgbuff[i]);
+            }
+
+            FILE *file = fopen(filename, "rb");
+            if (file == NULL) {
+                printf("Failed to open file for reading.\n");
+                closesocket(serverSocket);
+                return 1;
+            }
+
+            while (1) {
+                int bytesRead = fread(msgbuff, 1, SIZE_BUF, file);
+                if (bytesRead > 0) {
+                    send(serverSocket, (char*)&msgbuff, bytesRead, 0);
+                    // sendToSock(serverSocket, msgbuff, bytesRead);
+                } else {
+                    break;
+                }
+            }
+            sendToSock(serverSocket, "-end", 5);
+            fclose(file);
+            free(filename);
+// Отправка файла клиенту
+        } else if (!strncmp(resp, "-getfile", 8)) {
+
+        }
+        free(resp);
     }
 
     printf("Connection lost.\n");
