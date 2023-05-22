@@ -33,6 +33,18 @@ void sendToSock(SOCKET s, char *msg, int len) {
     }
 }
 
+char* getMsg(SOCKET serverSocket, int *len) {
+    char *msgbuff;
+    if ((*len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+        return NULL;
+    }
+    printf("[%d]Server: ", *len);
+    for (int i = 0; i < *len; i++) {
+        printf ("%c", msgbuff[i]);
+    }
+    return msgbuff;
+}
+
 SOCKET getConn(char *ipAddr, int port) {
     SOCKET s;
     // Создание сокета
@@ -83,7 +95,7 @@ int main() {
             for (int i = 0; i < len; i++) {
                 printf ("%c", msgbuff[i]);
             }
-            printf("\n");
+            // printf("\n");
             break;
         } while (len != 1);
 
@@ -106,11 +118,12 @@ int main() {
             }
             printf("Server: ");
             for (int i = 0; i < len; i++) {
-                printf ("%c", msgbuff[i]);
+                printf("%c", msgbuff[i]);
             }
+
             char *filename;
-            filename = (char*)malloc(32*sizeof(char));
-            scanMsg("Enter filename: ", filename, 32);
+            filename = (char*)malloc(128*sizeof(char));
+            scanMsg("Enter filename: ", filename, 128);
             filename[strcspn(filename, "\n")] = '\0';
 
             sendToSock(serverSocket, filename, strlen(filename));
@@ -140,13 +153,14 @@ int main() {
                 }
             }
             sendToSock(serverSocket, "-end", 5);
+
             fclose(file);
             free(filename);
 // Отправка файла клиенту
         } else if (!strncmp(resp, "-getfile", 8)) {
 
         }
-        free(resp);
+        // free(resp);
     }
 
     printf("Connection lost.\n");
