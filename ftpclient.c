@@ -21,6 +21,7 @@ void scanMsg(char *question, char *scanBuffer, int bufferLength) {
     } else { scanBuffer[strlen(scanBuffer) -1] = '\0'; }
 } 
 
+// Отправка сообщения серверу
 void sendToSock(SOCKET s, char *msg, int len) {
     if (len > SIZE_BUF) {
         printf("Message not sent! Exceeding the max message size...\n");
@@ -33,16 +34,17 @@ void sendToSock(SOCKET s, char *msg, int len) {
     }
 }
 
-char* getMsg(SOCKET serverSocket, int *len) {
-    char *msgbuff;
-    if ((*len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
-        return NULL;
+// Получение подтверждений и отладочных сообщений от сервера
+void recvMsg(SOCKET s) {
+    int len = 0;
+    char buff[SIZE_BUF];
+    if ((len = recv(s, (char*)&buff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+        exit(0);
     }
-    printf("[%d]Server: ", *len);
-    for (int i = 0; i < *len; i++) {
-        printf ("%c", msgbuff[i]);
+    printf("Server: ");
+    for (int i = 0; i < len; i++) {
+        printf ("%c", buff[i]);
     }
-    return msgbuff;
 }
 
 SOCKET getConn(char *ipAddr, int port) {
@@ -60,7 +62,7 @@ SOCKET getConn(char *ipAddr, int port) {
     // Порт. Используем функцию htons для перевода номера порта из обычного в //TCP/IP представление.
     serverAddress.sin_port = htons(port);
 
-   // Выполняем соединение с сервером:
+    // Выполняем соединение с сервером:
     if (connect(s, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
         printf("Connection error %d.\n", WSAGetLastError());
         closesocket(s);
@@ -79,31 +81,23 @@ int main() {
         exit(1);
     }
 
-    // 
+    // Создаём соединение с сервером
     SOCKET serverSocket = getConn("127.0.0.2", 8080);
 
-    char msgbuff[SIZE_BUF];
-
     while (1) {
-        // Получение сообщения
+        char msgbuff[SIZE_BUF];
         int len; 
         do {
-            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
-                return -1;
-            }
-            printf("Server: ");
-            for (int i = 0; i < len; i++) {
-                printf ("%c", msgbuff[i]);
-            }
+            // Получение сообщения
+            recvMsg(serverSocket);
             // printf("\n");
             break;
         } while (len != 1);
 
         // Отправка данных
-        
         char *resp;
-        resp = (char*)malloc(10*sizeof(char));
-        scanMsg("Enter msg: ", resp, 10); // (char*)&
+        resp = (char*)malloc(16*sizeof(char));
+        scanMsg("Enter msg: ", resp, 16); // (char*)&
         
         // if (send(serverSocket, resp, sizeof(resp), 0) == SOCKET_ERROR) {
         //     printf("Sending error %d.\n", WSAGetLastError());
@@ -113,13 +107,7 @@ int main() {
         sendToSock(serverSocket, resp, strlen(resp));
 // Отправка файла от клиента
         if (!strncmp(resp, "-sendfile", 9)) {
-            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
-                return -1;
-            }
-            printf("Server: ");
-            for (int i = 0; i < len; i++) {
-                printf("%c", msgbuff[i]);
-            }
+            recvMsg(serverSocket);
 
             char *filename;
             filename = (char*)malloc(128*sizeof(char));
@@ -128,13 +116,7 @@ int main() {
 
             sendToSock(serverSocket, filename, strlen(filename));
             
-            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
-                return -1;
-            }
-            printf("Server: ");
-            for (int i = 0; i < len; i++) {
-                printf ("%c", msgbuff[i]);
-            }
+            recvMsg(serverSocket);
 
             FILE *file = fopen(filename, "rb");
             if (file == NULL) {
