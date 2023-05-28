@@ -140,9 +140,75 @@ int main() {
             free(filename);
 // Отправка файла клиенту
         } else if (!strncmp(resp, "-getfile", 8)) {
+            // Получение сообщения
+            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR)
+                break;
+            msgbuff[len] = '\0';
+            if (!strncmp(msgbuff, "-end", 4))
+                break;
+            for (int i = 0; i < len; i++) {
+                printf("%c", msgbuff[i]);
+            }
+            char filename[128];
+            snprintf(filename, 128, "");
+            // filename = (char*)malloc(128*sizeof(char));
+            scanMsg("Enter filename: ", (char*)&filename, 128);
+            filename[strcspn(filename, "\n")] = '\0';
 
+            sendToSock(serverSocket, (char*)&filename, strlen(filename));
+
+            if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR)
+                break;
+            msgbuff[len] = '\0';
+            if (!strncmp(msgbuff, "-end", 4))
+                break;
+            for (int i = 0; i < len; i++)
+                printf("%c", msgbuff[i]);
+
+            printf("Receiving a file from the server.");
+            FILE *file = fopen(filename, "wb");
+            if (file == NULL) {
+                printf("Creating file error.\n");
+                fclose(file);
+                closesocket(serverSocket);
+                exit(0);
+            }
+            while (1) {
+                if ((len = recv(serverSocket, msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+                    printf("File retrieval error.\n");
+                    fclose(file);
+                    closesocket(serverSocket);
+                    exit(0);
+                }
+                if (!strncmp(msgbuff, "-end", 4)) {
+                    break;
+                }
+                if (len > 0) {
+                    fwrite(msgbuff, 1, len, file);
+                } 
+            }
+
+            fclose(file);
+
+        } else if (!strncmp(resp, "-list", 8)) {
+            printf("Server: ");
+            while (1) {
+                // Получение сообщения
+                int len = 0;
+                char buff[SIZE_BUF];
+                if ((len = recv(serverSocket, (char*)&buff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+                    break;
+                }
+                buff[len] = '\0';
+                if (!strncmp(buff, "-end", 4)) {
+                    break;
+                }
+                for (int i = 0; i < len; i++) {
+                    printf("%c", buff[i]);
+                }
+                // printf("\n");
+            }
         }
-        // free(resp);
     }
 
     printf("Connection lost.\n");
