@@ -47,6 +47,35 @@ void recvMsg(SOCKET s) {
     }
 }
 
+void getFileCom(SOCKET s, char *msgbuff) {
+    int len;
+    printf("Receiving a file from the server.\n");
+    FILE *file = fopen(filename, "wb");
+    if (file == NULL) {
+        printf("Creating file error.\n");
+        fclose(file);
+        closesocket(s);
+        exit(0);
+    }
+
+    while (1) {
+        if ((len = recv(s, msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+            printf("File retrieval error.\n");
+            fclose(file);
+            closesocket(s);
+            exit(0);
+        }
+        if (!strncmp(msgbuff, "-end", 4)) {
+            break;
+        }
+        if (len > 0) {
+            fwrite(msgbuff, 1, len, file);
+        } else { break; }
+    }
+
+    fclose(file);
+}
+
 // Передача файла сервер -> клиент
 void getFile(SOCKET s, char *msgbuff) {
     int len = 0;
@@ -151,6 +180,10 @@ int main() {
             break;
         } while (len != 1);
 
+        if (!strncmp(msgbuff, "GET", 3)) {
+            getFileCom(serverSocket, (char*)&msgbuff);
+            continue;
+        }
         // Отправка данных
         char *resp;
         resp = (char*)malloc(33*sizeof(char));
@@ -196,8 +229,9 @@ int main() {
             fclose(file);
             free(filename);
 // Отправка файла клиенту
-        } else if (!strncmp(resp, "-getfile", 8)) {
-            getFile(serverSocket, (char*)&msgbuff);
+        // } else if (!strncmp(msgbuff, "GET", 8)) {
+        //     getFileCom(serverSocket, (char*)&msgbuff);
+// Каталог файлов
         } else if (!strncmp(resp, "-list", 8)) {
             printf("Server: ");
             while (1) {
