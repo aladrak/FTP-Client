@@ -5,6 +5,9 @@
 
 #define SIZE_BUF 512
 
+#define IP_ADDR "127.0.0.2"
+#define PORT 8080
+
 // Ф-ия ввода команд
 void scanMsg(char *question, char *scanBuffer, int bufferLength) { 
     printf("%s  (Max %d characters)\n", question, bufferLength - 1); 
@@ -31,6 +34,25 @@ void sendToSock(SOCKET s, char *msg, int len) {
         printf("Sending error %d.\n", WSAGetLastError());
         closesocket(s);
         exit(0);
+    }
+}
+
+// Получение списка файлов в директории пользователя
+void showList(SOCKET s, char* msgbuff) {
+    printf("Server: ");
+    while (1) {
+        // Получение сообщения
+        int len = 0;
+        if ((len = recv(s, msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
+            break;
+        }
+        msgbuff[len] = '\0';
+        if (!strncmp(msgbuff, "-END", 4)) {
+            break;
+        }
+        for (int i = 0; i < len; i++) {
+            printf("%c", msgbuff[i]);
+        }
     }
 }
 
@@ -91,6 +113,7 @@ void sendFileCom(SOCKET s, char *msgbuff, int len) {
         filename[j++] = msgbuff[i]; 
     }
     filename[j] = '\0';
+
     printf("Sending a file \'%s\' %d to the server.\n", filename, sizeof(filename));
 
     FILE *file = fopen(filename, "rb");
@@ -121,6 +144,7 @@ void sendFileCom(SOCKET s, char *msgbuff, int len) {
     fclose(file);
 }
 
+// Создание подключения к серверу
 SOCKET getConn(char *ipAddr, int port) {
     SOCKET s;
     // Создание сокета
@@ -156,7 +180,7 @@ int main() {
     }
 
     // Создаём соединение с сервером
-    SOCKET serverSocket = getConn("127.0.0.2", 8080);
+    SOCKET serverSocket = getConn(IP_ADDR, PORT);
 
     while (1) {
         char msgbuff[SIZE_BUF];
@@ -173,12 +197,20 @@ int main() {
             } else if (!strncmp(msgbuff, "SEND", 4)) {
                 sendFileCom(serverSocket, (char*)&msgbuff, len);
                 continue;
+            } else if (!strncmp(msgbuff, "LIST", 4)) {
+                showList(serverSocket, (char*)&msgbuff);
+                continue;
+            } else if (!strncmp(msgbuff, "STOP", 4)) {
+                printf("Server stopped.\n");
+                return 1;
+            } else if (!strncmp(msgbuff, "EXIT", 4)) {
+                printf("Disconnection from the server.\n");
+                return 1;
             }
             printf("Server: ");
             for (int i = 0; i < len; i++) {
                 printf ("%c", msgbuff[i]);
             }
-            // printf("\n");
             break;
         } while (len != 1);
 
@@ -193,25 +225,6 @@ int main() {
         //     exit(0);
         // }
         sendToSock(serverSocket, resp, strlen(resp));
-            if (!strncmp(resp, "-list", 8)) {
-            printf("Server: ");
-            while (1) {
-                // Получение сообщения
-                int len = 0;
-                char buff[SIZE_BUF];
-                if ((len = recv(serverSocket, (char*)&buff, SIZE_BUF, 0)) == SOCKET_ERROR) {
-                    break;
-                }
-                buff[len] = '\0';
-                if (!strncmp(buff, "-end", 4)) {
-                    break;
-                }
-                for (int i = 0; i < len; i++) {
-                    printf("%c", buff[i]);
-                }
-                // printf("\n");
-            }
-        }
         free(resp);
     }
 
