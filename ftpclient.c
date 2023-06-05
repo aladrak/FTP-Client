@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 #include <winsock2.h>
 
 #define SIZE_BUF 512
+
+#define FOLDER_FILES "./stored_files"
 
 #define IP_ADDR "127.0.0.2"
 #define PORT 8080
@@ -114,6 +117,29 @@ void sendFileCom(SOCKET s, char *msgbuff, int len) {
     }
     filename[j] = '\0';
 
+    DIR* dir = opendir(FOLDER_FILES);
+    if (!dir) {
+        perror("diropen");
+    }
+    struct dirent* flnm;
+    while ((flnm = readdir(dir)) != NULL) {
+        // Если файл найден
+        if (strlen(flnm->d_name) > 2 && !strncmp(flnm->d_name, filename, sizeof(filename))) {
+            printf("A valid filename has been received. Start of file-transfer.\n");
+            snprintf(msgbuff, SIZE_BUF, "START");
+            send(s, msgbuff, strlen(msgbuff), 0);
+            break;
+        }
+    }
+    // Если файл не найден
+    if (flnm == NULL){
+        printf("The specified file was not found in the user's directory.\n");
+        snprintf(msgbuff, SIZE_BUF, "-END");
+        send(s, msgbuff, strlen(msgbuff), 0);
+        return;
+    }
+    closedir(dir);
+
     printf("Sending a file \'%s\' %d to the server.\n", filename, sizeof(filename));
 
     FILE *file = fopen(filename, "rb");
@@ -172,7 +198,7 @@ SOCKET getConn(char *ipAddr, int port) {
 
 int main() {
     WSADATA wsaData;
-    
+
     // Инициализация Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         printf("Error %d during initialization Winsock.\n", WSAGetLastError());
@@ -187,7 +213,6 @@ int main() {
         int len; 
         do {
             // Получение сообщения
-            int len = 0;
             if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
                 exit(0);
             }
