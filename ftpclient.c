@@ -6,10 +6,27 @@
 
 #define SIZE_BUF 512
 
+#define SIZE_MSG 32
+
 #define FOLDER_FILES "./stored_files"
 
 #define IP_ADDR "127.0.0.2"
 #define PORT 8080
+
+// Обработка команд сервера
+int procMsg(char buff[]) {
+    if (!strncmp(buff, "STOP", 4))
+        return 0;
+    if (!strncmp(buff, "EXIT", 4))
+        return 1;
+    if (!strncmp(buff, "GET", 3))
+        return 2;
+    if (!strncmp(buff, "SEND", 4))
+        return 3;
+    if (!strncmp(buff, "LIST", 4))
+        return 4;
+    return INT_MAX;
+}
 
 // Ф-ия ввода команд
 void scanMsg(char *question, char *scanBuffer, int bufferLength) { 
@@ -216,22 +233,43 @@ int main() {
             if ((len = recv(serverSocket, (char*)&msgbuff, SIZE_BUF, 0)) == SOCKET_ERROR) {
                 exit(0);
             }
-            if (!strncmp(msgbuff, "GET", 3)) {
-                getFileCom(serverSocket, (char*)&msgbuff, len);
-                continue;
-            } else if (!strncmp(msgbuff, "SEND", 4)) {
-                sendFileCom(serverSocket, (char*)&msgbuff, len);
-                continue;
-            } else if (!strncmp(msgbuff, "LIST", 4)) {
-                showList(serverSocket, (char*)&msgbuff);
-                continue;
-            } else if (!strncmp(msgbuff, "STOP", 4)) {
+
+            switch(procMsg(msgbuff)){
+            case 0:
                 printf("Server stopped.\n");
                 return 1;
-            } else if (!strncmp(msgbuff, "EXIT", 4)) {
+            case 1:
                 printf("Disconnection from the server.\n");
                 return 1;
+            case 2:
+                getFileCom(serverSocket, (char*)&msgbuff, len);
+                continue;
+            case 3:
+                sendFileCom(serverSocket, (char*)&msgbuff, len);
+                continue;
+            case 4:
+                showList(serverSocket, (char*)&msgbuff);
+                continue;
+            default:
+                break;
             }
+
+            // if (!strncmp(msgbuff, "GET", 3)) {
+            //     getFileCom(serverSocket, (char*)&msgbuff, len);
+            //     continue;
+            // } else if (!strncmp(msgbuff, "SEND", 4)) {
+            //     sendFileCom(serverSocket, (char*)&msgbuff, len);
+            //     continue;
+            // } else if (!strncmp(msgbuff, "LIST", 4)) {
+            //     showList(serverSocket, (char*)&msgbuff);
+            //     continue;
+            // } else if (!strncmp(msgbuff, "STOP", 4)) {
+            //     printf("Server stopped.\n");
+            //     return 1;
+            // } else if (!strncmp(msgbuff, "EXIT", 4)) {
+            //     printf("Disconnection from the server.\n");
+            //     return 1;
+            // }
             printf("Server: ");
             for (int i = 0; i < len; i++) {
                 printf ("%c", msgbuff[i]);
@@ -241,15 +279,20 @@ int main() {
 
         // Отправка данных
         char *resp;
-        resp = (char*)malloc(33*sizeof(char));
-        scanMsg("Enter msg: ", resp, 33); // (char*)&
+        resp = (char*)malloc((SIZE_MSG + 1)*sizeof(char));
+        scanMsg("Enter msg: ", resp, SIZE_MSG + 1); // (char*)&
         
         // if (send(serverSocket, resp, sizeof(resp), 0) == SOCKET_ERROR) {
         //     printf("Sending error %d.\n", WSAGetLastError());
         //     closesocket(serverSocket);
         //     exit(0);
         // }
-        sendToSock(serverSocket, resp, strlen(resp));
+
+        if (send(serverSocket, resp, strlen(resp), 0) == SOCKET_ERROR) {
+            printf("Sending error %d.\n", WSAGetLastError());
+            closesocket(serverSocket);
+            exit(0);
+        }
         free(resp);
     }
 
