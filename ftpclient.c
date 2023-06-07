@@ -10,21 +10,27 @@
 
 #define FOLDER_FILES "./stored_files"
 
+#define CODE_STOP 0
+#define CODE_EXIT 1
+#define CODE_GET 2
+#define CODE_SEND 3
+#define CODE_LIST 4
+
 #define IP_ADDR "127.0.0.2"
 #define PORT 8080
 
 // Обработка команд сервера
-int procMsg(char buff[]) {
+int procMsg(char *buff) {
     if (!strncmp(buff, "STOP", 4))
-        return 0;
+        return CODE_STOP;
     if (!strncmp(buff, "EXIT", 4))
-        return 1;
+        return CODE_EXIT;
     if (!strncmp(buff, "GET", 3))
-        return 2;
+        return CODE_GET;
     if (!strncmp(buff, "SEND", 4))
-        return 3;
+        return CODE_SEND;
     if (!strncmp(buff, "LIST", 4))
-        return 4;
+        return CODE_LIST;
     return INT_MAX;
 }
 
@@ -234,42 +240,25 @@ int main() {
                 exit(0);
             }
 
-            switch(procMsg(msgbuff)){
-            case 0:
+            switch(procMsg((char*)&msgbuff)){
+            case CODE_STOP:
                 printf("Server stopped.\n");
                 return 1;
-            case 1:
+            case CODE_EXIT:
                 printf("Disconnection from the server.\n");
                 return 1;
-            case 2:
+            case CODE_GET:
                 getFileCom(serverSocket, (char*)&msgbuff, len);
                 continue;
-            case 3:
+            case CODE_SEND:
                 sendFileCom(serverSocket, (char*)&msgbuff, len);
                 continue;
-            case 4:
+            case CODE_LIST:
                 showList(serverSocket, (char*)&msgbuff);
                 continue;
             default:
                 break;
             }
-
-            // if (!strncmp(msgbuff, "GET", 3)) {
-            //     getFileCom(serverSocket, (char*)&msgbuff, len);
-            //     continue;
-            // } else if (!strncmp(msgbuff, "SEND", 4)) {
-            //     sendFileCom(serverSocket, (char*)&msgbuff, len);
-            //     continue;
-            // } else if (!strncmp(msgbuff, "LIST", 4)) {
-            //     showList(serverSocket, (char*)&msgbuff);
-            //     continue;
-            // } else if (!strncmp(msgbuff, "STOP", 4)) {
-            //     printf("Server stopped.\n");
-            //     return 1;
-            // } else if (!strncmp(msgbuff, "EXIT", 4)) {
-            //     printf("Disconnection from the server.\n");
-            //     return 1;
-            // }
             printf("Server: ");
             for (int i = 0; i < len; i++) {
                 printf ("%c", msgbuff[i]);
